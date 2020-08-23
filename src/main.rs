@@ -99,9 +99,8 @@ fn main() {
 
         // Basic usage of shader helper
         // The code below returns a shader object, which contains the field .program_id
-        // The snippet is not enough to do the assignment, and will need to be modified (outside of just using the correct path), but it only needs to be called once
+        // The snippet is not enough to do the assignment, and will need to be modified (outside of just using the correct path)
         // shader::ShaderBuilder::new().attach_file("./path/to/shader").link();
-        unsafe {
 
         }
 
