@@ -133,18 +133,37 @@ fn main() {
             println!("OpenGL\t: {}", util::get_gl_string(gl::VERSION));
             println!("GLSL\t: {}", util::get_gl_string(gl::SHADING_LANGUAGE_VERSION));
         }
-        // == // Set up your VAO here
-        let vertices: Vec<f32> = vec![-0.5, -0.5, 0., 0.5, -0.5, 0., 0.5, 0.5, 0.0, -0.5, 0.5, 0.];
-        let indices: Vec<u32> = vec![0, 1, 3];
+        //set up verticies
+        let mut vertices: Vec<f32> = Vec::new();
+        let n: u32 = 5;
+        for i in 1..n + 1 {
+            let i2 = i as f32;
+            let size = 0.1;
+            let offset = 0.9 - size * i2 * (i2 + 1.) / 2.;
+            let triangle = vec![
+                -size * i2,
+                offset,
+                0.,
+                size * i2,
+                offset,
+                0.,
+                0.,
+                offset + size * i2,
+                0.,
+            ];
+            vertices.extend_from_slice(&triangle);
+        }
+        //set up indices
+        let indices: Vec<u32> = (0..(n * 3)).collect();
+
         unsafe {
+            //reate the vao
             let vao = create_vao(&vertices, &indices);
             gl::BindVertexArray(vao);
-            let vert_shader = shader::ShaderBuilder::new()
-                .attach_file("shaders\\simple.frag")
-                .link();
-            let frag_shader = shader::ShaderBuilder::new()
-                .attach_file("shaders\\simple.frag")
-                .link();
+            let vert_shader = shader::ShaderBuilder::new().attach_file("shaders\\simple.frag");
+            vert_shader.link();
+            let frag_shader = shader::ShaderBuilder::new().attach_file("shaders\\simple.frag");
+            frag_shader.link();
         }
 
         // Basic usage of shader helper
@@ -193,6 +212,13 @@ fn main() {
                 gl::ClearColor(0.163, 0.163, 0.163, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    indices.len() as i32,
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
                 // Issue the necessary commands to draw your scene here
             }
 
