@@ -1,22 +1,22 @@
 extern crate nalgebra_glm as glm;
 use gl::types::*;
-use std::{
-    mem,
-    ptr,
-    str,
-    os::raw::c_void,
-};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::sync::{Mutex, Arc, RwLock};
+use std::{mem, os::raw::c_void, ptr, str};
 
 mod shader;
 mod util;
 
-use glutin::event::{Event, WindowEvent, KeyboardInput, ElementState::{Pressed, Released}, VirtualKeyCode::{self, *}};
+use glutin::event::{
+    ElementState::{Pressed, Released},
+    Event, KeyboardInput,
+    VirtualKeyCode::{self, *},
+    WindowEvent,
+};
 use glutin::event_loop::ControlFlow;
 
 const SCREEN_W: u32 = 800;
-const SCREEN_H: u32 = 600;
+const SCREEN_H: u32 = 800;
 
 // Helper functions to make interacting with OpenGL a little bit prettier. You will need these!
 // The names should be pretty self explanatory
@@ -40,7 +40,43 @@ fn offset<T>(n: u32) -> *const c_void {
 }
 
 // == // Modify and complete the function below for the first task
-// unsafe fn FUNCTION_NAME(ARGUMENT_NAME: &Vec<f32>, ARGUMENT_NAME: &Vec<u32>) -> u32 { } 
+unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
+    // gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+    let mut vao: gl::types::GLuint = 0;
+    gl::GenVertexArrays(1, &mut vao);
+    gl::BindVertexArray(vao);
+
+    let mut vbo: gl::types::GLuint = 0;
+    gl::GenBuffers(1, &mut vbo);
+    gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+    gl::BufferData(
+        gl::ARRAY_BUFFER,                                                       // target
+        (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr, // size of data in bytes
+        vertices.as_ptr() as *const gl::types::GLvoid,                          // pointer to data
+        gl::STATIC_DRAW,                                                        // usage
+    );
+    gl::VertexAttribPointer(
+        0,         // index of the generic vertex attribute ("layout (location = 0)")
+        3,         // the number of components per generic vertex attribute
+        gl::FLOAT, // data type
+        gl::FALSE, // normalized (int-to-float conversion)
+        (3 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        std::ptr::null(),                                     // offset of the first component
+    );
+    gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
+
+    let mut ibo: gl::types::GLuint = 0;
+    gl::GenBuffers(1, &mut ibo);
+    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+    gl::BufferData(
+        gl::ELEMENT_ARRAY_BUFFER, // target
+        (indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr, // size of data in bytes
+        indices.as_ptr() as *const gl::types::GLvoid,                          // pointer to data
+        gl::STATIC_DRAW,                                                       // usage
+    );
+
+    return vao;
+}
 
 fn main() {
     // Set up the necessary objects to deal with windows and event handling
@@ -49,10 +85,8 @@ fn main() {
         .with_title("Gloom-rs")
         .with_resizable(false)
         .with_inner_size(glutin::dpi::LogicalSize::new(SCREEN_W, SCREEN_H));
-    let cb = glutin::ContextBuilder::new()
-        .with_vsync(true);
+    let cb = glutin::ContextBuilder::new().with_vsync(true);
     let windowed_context = cb.build_windowed(wb, &el).unwrap();
-    
     // Set up a shared vector for keeping track of currently pressed keys
     let arc_pressed_keys = Arc::new(Mutex::new(Vec::<VirtualKeyCode>::with_capacity(10)));
     // Send a copy of this vector to send to the render thread
@@ -77,10 +111,18 @@ fn main() {
             gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
             gl::DebugMessageCallback(Some(util::debug_callback), ptr::null());
         }
-
         // == // Set up your VAO here
+        let vertices: Vec<f32> = vec![-0.5, -0.5, 0., 0.5, -0.5, 0., 0.5, 0.5, 0.0, -0.5, 0.5, 0.];
+        let indices: Vec<u32> = vec![0, 1, 3];
         unsafe {
-
+            let vao = create_vao(&vertices, &indices);
+            gl::BindVertexArray(vao);
+            let vert_shader = shader::ShaderBuilder::new()
+                .attach_file("shaders\\simple.frag")
+                .link();
+            let frag_shader = shader::ShaderBuilder::new()
+                .attach_file("shaders\\simple.frag")
+                .link();
         }
 
         // Basic usage of shader helper
@@ -106,13 +148,12 @@ fn main() {
                     match key {
                         VirtualKeyCode::A => {
                             _arbitrary_number += delta_time;
-                        },
+                        }
                         VirtualKeyCode::D => {
                             _arbitrary_number -= delta_time;
-                        },
+                        }
 
-
-                        _ => { }
+                        _ => {}
                     }
                 }
             }
@@ -120,14 +161,8 @@ fn main() {
             unsafe {
                 gl::ClearColor(0.163, 0.163, 0.163, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
-
+                gl::DrawElements(gl::TRIANGLES, 3, gl::UNSIGNED_INT, ptr::null());
                 // Issue the necessary commands to draw your scene here
-
-
-
-
-
-                
             }
 
             context.swap_buffers().unwrap();
@@ -158,13 +193,26 @@ fn main() {
         }
 
         match event {
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
                 *control_flow = ControlFlow::Exit;
-            },
+            }
             // Keep track of currently pressed keys to send to the rendering thread
-            Event::WindowEvent { event: WindowEvent::KeyboardInput {
-                input: KeyboardInput { state: key_state, virtual_keycode: Some(keycode), .. }, .. }, .. } => {
-
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: key_state,
+                                virtual_keycode: Some(keycode),
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => {
                 if let Ok(mut keys) = arc_pressed_keys.lock() {
                     match key_state {
                         Released => {
@@ -172,7 +220,7 @@ fn main() {
                                 let i = keys.iter().position(|&k| k == keycode).unwrap();
                                 keys.remove(i);
                             }
-                        },
+                        }
                         Pressed => {
                             if !keys.contains(&keycode) {
                                 keys.push(keycode);
@@ -185,11 +233,11 @@ fn main() {
                 match keycode {
                     Escape => {
                         *control_flow = ControlFlow::Exit;
-                    },
-                    _ => { }
+                    }
+                    _ => {}
                 }
-            },
-            _ => { }
+            }
+            _ => {}
         }
     });
 }
