@@ -133,21 +133,28 @@ fn main() {
         }
         //set up indices
         let indices: Vec<u32> = (0..(n * 3)).collect();
+        // let vertices: Vec<f32> = vec![0.6, -0.8, -1.2, 0.0, 0.4, 0.0, -0.8, -0.2, 1.2];
+        // let indices: Vec<u32> = vec![0, 2, 1];
 
         unsafe {
             //reate the vao
             let vao = create_vao(&vertices, &indices);
             gl::BindVertexArray(vao);
-            let vert_shader = shader::ShaderBuilder::new().attach_file("shaders\\simple.frag");
-            vert_shader.link();
-            let frag_shader = shader::ShaderBuilder::new().attach_file("shaders\\simple.frag");
-            frag_shader.link();
-        }
+            // let vert_shader = shader::ShaderBuilder::new().attach_file("shaders\\simple.vert");
+            // vert_shader.link();
+            // let frag_shader = shader::ShaderBuilder::new().attach_file("shaders\\simple.frag");
+            // frag_shader.link();
+            // Basic usage of shader helper
+            // The code below returns a shader object, which contains the field .program_id
+            // The snippet is not enough to do the assignment, and will need to be modified (outside of just using the correct path)
 
-        // Basic usage of shader helper
-        // The code below returns a shader object, which contains the field .program_id
-        // The snippet is not enough to do the assignment, and will need to be modified (outside of just using the correct path)
-        // shader::ShaderBuilder::new().attach_file("./path/to/shader").link();
+            let shader_builder = shader::ShaderBuilder::new();
+            let shader_builder = shader_builder.attach_file("shaders\\simple.vert");
+            let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
+            let shader_builder = shader_builder.link();
+            gl::UseProgram(shader_builder.program_id);
+            // gl::UseProgram(shader_builder);
+        }
 
         // Used to demonstrate keyboard handling -- feel free to remove
         let mut _arbitrary_number = 0.0;
