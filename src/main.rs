@@ -153,8 +153,16 @@ fn main() {
             ];
             vertices.extend_from_slice(&triangle);
         }
+        let mut square: Vec<f32> = vec![0.6, 0.6, 0., 0.9, 0.6, 0., 0.9, 0.9, 0., 0.6, 0.9, 0.];
+        vertices.extend_from_slice(&square);
         //set up indices
-        let indices: Vec<u32> = (0..(n * 3)).collect();
+        let indices_triangles: Vec<u32> = (0..(n * 3)).collect();
+        let indices_square1: Vec<u32> = ((n * 3)..(n * 3 + 3)).collect();
+        let indices_square2: Vec<u32> = vec![(n * 3), (n * 3) + 2, (n * 3) + 3];
+        let mut indices: Vec<u32> = Vec::new();
+        indices.extend_from_slice(&indices_triangles);
+        indices.extend_from_slice(&indices_square1);
+        indices.extend_from_slice(&indices_square2);
         // let vertices: Vec<f32> = vec![0.6, -0.8, -1.2, 0.0, 0.4, 0.0, -0.8, -0.2, 1.2];
         // let indices: Vec<u32> = vec![0, 2, 1];
 
