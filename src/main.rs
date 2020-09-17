@@ -49,20 +49,31 @@ fn offset<T>(n: u32) -> *const c_void {
 // ptr::null()
 
 // == // Modify and complete the function below for the first task
-unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
+unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>) -> u32 {
     // gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     let mut vao: gl::types::GLuint = 0;
     gl::GenVertexArrays(1, &mut vao);
     gl::BindVertexArray(vao);
+    let mut data: Vec<f32> = Vec::new();
+    for i in 0..vertices.len() / 3 {
+        for j in 0..3 {
+            data.push(vertices[3 * i + j])
+        }
+
+        for j in 0..4 {
+            data.push(colors[4 * i + j])
+        }
+    }
+    println!("data {:?}", data);
 
     let mut vbo: gl::types::GLuint = 0;
     gl::GenBuffers(1, &mut vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
     gl::BufferData(
-        gl::ARRAY_BUFFER,                              // target
-        byte_size_of_array(vertices),                  // size of data in bytes
-        vertices.as_ptr() as *const gl::types::GLvoid, // pointer to data
-        gl::STATIC_DRAW,                               // usage
+        gl::ARRAY_BUFFER,                          // target
+        byte_size_of_array(&data),                 // size of data in bytes
+        data.as_ptr() as *const gl::types::GLvoid, // pointer to data
+        gl::STATIC_DRAW,                           // usage
     );
 
     gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
@@ -71,16 +82,16 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
         3,         // the number of components per generic vertex attribute
         gl::FLOAT, // data type
         gl::FALSE, // normalized (int-to-float conversion)
-        (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        (7 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
         std::ptr::null(),                                     // offset of the first component
     );
     gl::EnableVertexAttribArray(1); // this is "layout (location = 0)" in vertex shader
     gl::VertexAttribPointer(
         1,         // index of the generic vertex attribute ("layout (location = 0)")
-        3,         // the number of components per generic vertex attribute
+        4,         // the number of components per generic vertex attribute
         gl::FLOAT, // data type
         gl::FALSE, // normalized (int-to-float conversion)
-        (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        (7 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
         offset::<f32>(3),                                     // offset of the first component
     );
     let mut ibo: gl::types::GLuint = 0;
@@ -153,14 +164,14 @@ fn main() {
 
         //set up verticies
         let n: u32 = 3;
-        let vertices: Vec<f32> = get_triangles(n);
+        let (vertices, colors) = get_triangles(n);
 
         //set up indices
         let indices: Vec<u32> = (0..(n * 3)).collect();
 
         unsafe {
             //reate the vao
-            let vao = create_vao(&vertices, &indices);
+            let vao = create_vao(&vertices, &colors, &indices);
             gl::BindVertexArray(vao);
 
             //I personally think this was way to difficult to figure out...
