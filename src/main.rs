@@ -137,7 +137,6 @@ fn main() {
             gl::load_with(|symbol| c.get_proc_address(symbol) as *const _);
             c
         };
-
         // Set up openGL
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
