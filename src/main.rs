@@ -1,14 +1,16 @@
 extern crate nalgebra_glm as glm;
-use std::{ mem, ptr, os::raw::c_void };
-use gl::types::*;
+// use gl::types::*;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::{mem, os::raw::c_void, ptr, str};
+use std::{mem, os::raw::c_void, ptr};
 
 mod shader;
+mod triangles;
 mod util;
+use triangles::get_triangles;
 
 use glutin::event::{
+    DeviceEvent,
     ElementState::{Pressed, Released},
     Event, KeyboardInput,
     VirtualKeyCode::{self, *},
@@ -26,24 +28,25 @@ fn byte_size_of_array<T>(val: &[T]) -> isize {
 }
 
 // Get the OpenGL-compatible pointer to an arbitrary array of numbers
+#[allow(dead_code)]
 fn pointer_to_array<T>(val: &[T]) -> *const c_void {
     &val[0] as *const T as *const c_void
 }
 
 // Get the size of the given type in bytes
+#[allow(dead_code)]
 fn size_of<T>() -> i32 {
     mem::size_of::<T>() as i32
 }
 
 // Get an offset in bytes for n units of type T
+#[allow(dead_code)]
 fn offset<T>(n: u32) -> *const c_void {
     (n * mem::size_of::<T>() as u32) as *const T as *const c_void
 }
 
 // Get a null pointer (equivalent to an offset of 0)
 // ptr::null()
-
-
 
 // == // Modify and complete the function below for the first task
 unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
@@ -96,7 +99,6 @@ fn main() {
     // Uncomment these if you want to use the mouse for controls, but want it to be confined to the screen and/or invisible.
     // windowed_context.window().set_cursor_grab(true).expect("failed to grab cursor");
     // windowed_context.window().set_cursor_visible(false);
-    
     // Set up a shared vector for keeping track of currently pressed keys
     let arc_pressed_keys = Arc::new(Mutex::new(Vec::<VirtualKeyCode>::with_capacity(10)));
     // Make a reference of this vector to send to the render thread
@@ -129,42 +131,24 @@ fn main() {
             gl::DebugMessageCallback(Some(util::debug_callback), ptr::null());
 
             // Print some diagnostics
-            println!("{}: {}", util::get_gl_string(gl::VENDOR), util::get_gl_string(gl::RENDERER));
+            println!(
+                "{}: {}",
+                util::get_gl_string(gl::VENDOR),
+                util::get_gl_string(gl::RENDERER)
+            );
             println!("OpenGL\t: {}", util::get_gl_string(gl::VERSION));
-            println!("GLSL\t: {}", util::get_gl_string(gl::SHADING_LANGUAGE_VERSION));
+            println!(
+                "GLSL\t: {}",
+                util::get_gl_string(gl::SHADING_LANGUAGE_VERSION)
+            );
         }
+
         //set up verticies
-        let mut vertices: Vec<f32> = Vec::new();
         let n: u32 = 5;
-        for i in 1..n + 1 {
-            let i2 = i as f32;
-            let size = 0.1;
-            let offset = 0.9 - size * i2 * (i2 + 1.) / 2.;
-            let triangle = vec![
-                -size * i2,
-                offset,
-                0.,
-                size * i2,
-                offset,
-                0.,
-                0.,
-                offset + size * i2,
-                0.,
-            ];
-            vertices.extend_from_slice(&triangle);
-        }
-        let mut square: Vec<f32> = vec![0.6, 0.6, 0., 0.9, 0.6, 0., 0.9, 0.9, 0., 0.6, 0.9, 0.];
-        vertices.extend_from_slice(&square);
+        let vertices: Vec<f32> = get_triangles(n);
+
         //set up indices
-        let indices_triangles: Vec<u32> = (0..(n * 3)).collect();
-        let indices_square1: Vec<u32> = ((n * 3)..(n * 3 + 3)).collect();
-        let indices_square2: Vec<u32> = vec![(n * 3), (n * 3) + 2, (n * 3) + 3];
-        let mut indices: Vec<u32> = Vec::new();
-        indices.extend_from_slice(&indices_triangles);
-        indices.extend_from_slice(&indices_square1);
-        indices.extend_from_slice(&indices_square2);
-        // let vertices: Vec<f32> = vec![0.6, -0.8, -1.2, 0.0, 0.4, 0.0, -0.8, -0.2, 1.2];
-        // let indices: Vec<u32> = vec![0, 2, 1];
+        let indices: Vec<u32> = (0..(n * 3)).collect();
 
         unsafe {
             //reate the vao
@@ -179,8 +163,6 @@ fn main() {
             gl::UseProgram(shader_builder.program_id);
         }
 
-        }
-
         // Used to demonstrate keyboard handling -- feel free to remove
         let mut _arbitrary_number = 0.0;
 
@@ -189,7 +171,7 @@ fn main() {
         // The main rendering loop
         loop {
             let now = std::time::Instant::now();
-            let elapsed = now.duration_since(first_frame_time).as_secs_f32();
+            let _elapsed = now.duration_since(first_frame_time).as_secs_f32();
             let delta_time = now.duration_since(last_frame_time).as_secs_f32();
             last_frame_time = now;
 
@@ -210,9 +192,6 @@ fn main() {
             }
             // Handle mouse movement. delta contains the x and y movement of the mouse since last frame in pixels
             if let Ok(mut delta) = mouse_delta.lock() {
-
-
-
                 *delta = (0.0, 0.0);
             }
 
@@ -301,14 +280,17 @@ fn main() {
                     }
                     _ => {}
                 }
-            },
-            Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
+            }
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta },
+                ..
+            } => {
                 // Accumulate mouse movement
                 if let Ok(mut position) = arc_mouse_delta.lock() {
                     *position = (position.0 + delta.0 as f32, position.1 + delta.1 as f32);
                 }
-            },
-            _ => { }
+            }
+            _ => {}
         }
     });
 }

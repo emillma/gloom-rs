@@ -19,10 +19,14 @@ pub enum ShaderType {
     Geometry,
 }
 
+#[allow(dead_code)]
 impl Shader {
     // Make sure the shader is active before calling this
     pub unsafe fn get_uniform_location(&self, name: &str) -> i32 {
-        gl::GetUniformLocation(self.program_id, CString::new(name).expect("CString::new failed").as_ptr())
+        gl::GetUniformLocation(
+            self.program_id,
+            CString::new(name).expect("CString::new failed").as_ptr(),
+        )
     }
 
     pub unsafe fn activate(&self) {
