@@ -20,7 +20,6 @@ pub fn get_triangles(n: u32) -> (Vec<f32>, Vec<f32>) {
 
         for j in 0..3 {
             let j = j as f32;
-            let j_frac = j / 2.;
 
             vertecies.extend_from_slice(&vec![
                 x + deg2rad(0. + 120. * j + i * (360. / n)).cos() * size,

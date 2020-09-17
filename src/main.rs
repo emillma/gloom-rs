@@ -201,7 +201,7 @@ fn main() {
         let mut last_frame_time = std::time::Instant::now();
 
         //The perspective matrix
-        let perspective: glm::Mat4 = glm::perspective(1., PI / 2.5, 0.1, 100.);
+        let perspective: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 100.);
         //The Translation matrix, used to store the current translation
         let mut translation: glm::Mat4 = glm::translation(&glm::vec3(0.0, 0.0, 0.0));
         //The Rotation matrix, used to store the current translation
@@ -217,7 +217,7 @@ fn main() {
 
             // Handle keyboard input
             if let Ok(keys) = pressed_keys.lock() {
-                let step = delta_time * movement_spd * 2.;
+                let step = delta_time * movement_spd * 3.;
 
                 // Used to get a more natural movement of the camera
                 let dirz = step * glm::inverse(&rotation) * glm::vec4(0., 0., 1., 1.);
@@ -228,22 +228,14 @@ fn main() {
                 let diry = glm::vec3(diry[0], diry[1], diry[2]);
                 for key in keys.iter() {
                     match key {
-                        VirtualKeyCode::W => translation *= glm::translation(&dirz),
-                        VirtualKeyCode::S => {
-                            translation *= glm::translation(&-dirz);
-                        }
-                        VirtualKeyCode::A => {
-                            translation *= glm::translation(&dirx);
-                        }
-                        VirtualKeyCode::D => {
-                            translation *= glm::translation(&-dirx);
-                        }
-                        VirtualKeyCode::Q => {
-                            translation *= glm::translation(&diry);
-                        }
-                        VirtualKeyCode::E => {
-                            translation *= glm::translation(&-diry);
-                        }
+                        VirtualKeyCode::W => translation = glm::translation(&dirz) * translation,
+                        VirtualKeyCode::S => translation = glm::translation(&-dirz) * translation,
+
+                        VirtualKeyCode::A => translation = glm::translation(&dirx) * translation,
+                        VirtualKeyCode::D => translation = glm::translation(&-dirx) * translation,
+
+                        VirtualKeyCode::Q => translation = glm::translation(&diry) * translation,
+                        VirtualKeyCode::E => translation = glm::translation(&-diry) * translation,
                         _ => {}
                     }
                 }
