@@ -64,16 +64,25 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
         vertices.as_ptr() as *const gl::types::GLvoid, // pointer to data
         gl::STATIC_DRAW,                               // usage
     );
+
+    gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
     gl::VertexAttribPointer(
         0,         // index of the generic vertex attribute ("layout (location = 0)")
         3,         // the number of components per generic vertex attribute
         gl::FLOAT, // data type
         gl::FALSE, // normalized (int-to-float conversion)
-        (3 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
         std::ptr::null(),                                     // offset of the first component
     );
-    gl::EnableVertexAttribArray(0); // this is "layout (location = 0)" in vertex shader
-
+    gl::EnableVertexAttribArray(1); // this is "layout (location = 0)" in vertex shader
+    gl::VertexAttribPointer(
+        1,         // index of the generic vertex attribute ("layout (location = 0)")
+        3,         // the number of components per generic vertex attribute
+        gl::FLOAT, // data type
+        gl::FALSE, // normalized (int-to-float conversion)
+        (6 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        offset::<f32>(3),                                     // offset of the first component
+    );
     let mut ibo: gl::types::GLuint = 0;
     gl::GenBuffers(1, &mut ibo);
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
@@ -83,7 +92,6 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
         indices.as_ptr() as *const gl::types::GLvoid, // pointer to data
         gl::STATIC_DRAW,                              // usage
     );
-
     return vao;
 }
 
@@ -144,7 +152,7 @@ fn main() {
         }
 
         //set up verticies
-        let n: u32 = 5;
+        let n: u32 = 3;
         let vertices: Vec<f32> = get_triangles(n);
 
         //set up indices

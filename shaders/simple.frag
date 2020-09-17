@@ -1,9 +1,8 @@
 #version 460 core
 
-
-out vec4 FragColor;
-
+smooth in vec4 theColor;
+out vec4 outColor;
 void main()
 {
-    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-} 
+    outColor = vec4(theColor.x, theColor.y, theColor.z, 0.7);;
+}
