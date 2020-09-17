@@ -9,10 +9,10 @@ uniform mat4 ViewProjection;
 out vec4 theColor;
 
 mat4 matrix = mat4(
-   0, -1., 0.0, 0.0, // first column (not row!)
-   1., 0, 0.0, 0.0,// second column
+   1.0, 0.0, 0.0, 0.0, // first column (not row!)
+   0.0, 1.0, 0.0, 0.0,// second column
    0.0, 0.0, 1.0, 0.0,// third column
-   0., 0.0, 0.0, 1.0
+   0.0, 0.0, -5.0, 1.0
 );
 // proj[1] = vec4(0.0, 1.0, 0.0, 0.0);
 // proj[2] = vec4(0.0, 0.0, 1.0, 0.0);
@@ -21,6 +21,6 @@ mat4 matrix = mat4(
 
 void main()
 {
-    gl_Position = ViewProjection * vec4(vertex_position, 1.);
+    gl_Position = ViewProjection * matrix *  vec4(vertex_position, 1.);
     theColor = vertex_color;
 }

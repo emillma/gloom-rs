@@ -23,14 +23,14 @@ pub fn get_triangles(n: u32) -> (Vec<f32>, Vec<f32>) {
             let j_frac = j / 2.;
 
             vertecies.extend_from_slice(&vec![
-                x + deg2rad(10. + 120. * j + i * (360. / n)).cos() * size,
-                y + deg2rad(10. + 120. * j + i * (360. / n)).sin() * size,
-                z - i_frac * 0.1,
+                x + deg2rad(0. + 120. * j + i * (360. / n)).cos() * size,
+                y + deg2rad(0. + 120. * j + i * (360. / n)).sin() * size,
+                z + i_frac * 2.,
             ]);
             colors.extend_from_slice(&vec![
+                (0.5 * (i == 0.) as i32 as f32) + 0.3,
                 (0.5 * (i == 1.) as i32 as f32) + 0.3,
                 (0.5 * (i == 2.) as i32 as f32) + 0.3,
-                (0.5 * (i == 0.) as i32 as f32) + 0.3,
                 0.5,
             ]);
         }

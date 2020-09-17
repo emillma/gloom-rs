@@ -1,6 +1,7 @@
 extern crate nalgebra_glm as glm;
 // use gl::types::*;
 
+use std::f32::consts::PI;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::{mem, os::raw::c_void, ptr};
@@ -195,42 +196,68 @@ fn main() {
         }
 
         // Used to demonstrate keyboard handling -- feel free to remove
-        let mut _arbitrary_number = 0.0;
+        let movement_spd = 1.;
+        let camera_spd = 1.;
+        let mut last_frame_time = std::time::Instant::now();
 
-        let first_frame_time = std::time::Instant::now();
-        let mut last_frame_time = first_frame_time;
+        //The perspective matrix
+        let perspective: glm::Mat4 = glm::perspective(1., PI / 2.5, 0.1, 100.);
+        //The Translation matrix, used to store the current translation
+        let mut translation: glm::Mat4 = glm::translation(&glm::vec3(0.0, 0.0, 0.0));
+        //The Rotation matrix, used to store the current translation
+        let mut rotation: glm::Mat4 = glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0));
+
+        //The final camera matrix, used to combine the other matricies
+        let mut camera_matrix: glm::Mat4;
         // The main rendering loop
         loop {
             let now = std::time::Instant::now();
-            let elapsed = now.duration_since(first_frame_time).as_secs_f32();
             let delta_time = now.duration_since(last_frame_time).as_secs_f32();
             last_frame_time = now;
 
             // Handle keyboard input
             if let Ok(keys) = pressed_keys.lock() {
+                let step = delta_time * movement_spd * 2.;
+
+                // Used to get a more natural movement of the camera
+                let dirz = step * glm::inverse(&rotation) * glm::vec4(0., 0., 1., 1.);
+                let dirz = glm::vec3(dirz[0], dirz[1], dirz[2]);
+                let dirx = step * glm::inverse(&rotation) * glm::vec4(1., 0., 0., 1.);
+                let dirx = glm::vec3(dirx[0], dirx[1], dirx[2]);
+                let diry = step * glm::inverse(&rotation) * glm::vec4(0., 1., 0., 1.);
+                let diry = glm::vec3(diry[0], diry[1], diry[2]);
                 for key in keys.iter() {
                     match key {
+                        VirtualKeyCode::W => translation *= glm::translation(&dirz),
+                        VirtualKeyCode::S => {
+                            translation *= glm::translation(&-dirz);
+                        }
                         VirtualKeyCode::A => {
-                            _arbitrary_number += delta_time;
+                            translation *= glm::translation(&dirx);
                         }
                         VirtualKeyCode::D => {
-                            _arbitrary_number -= delta_time;
+                            translation *= glm::translation(&-dirx);
                         }
-
+                        VirtualKeyCode::Q => {
+                            translation *= glm::translation(&diry);
+                        }
+                        VirtualKeyCode::E => {
+                            translation *= glm::translation(&-diry);
+                        }
                         _ => {}
                     }
                 }
             }
-            let mut scaling: glm::Mat4 = glm::scaling(&glm::vec3(1.0, 1.0, 1.0));
-            scaling[(0, 0)] = elapsed.cos().powf(2.);
-
             // Handle mouse movement. delta contains the x and y movement of the mouse since last frame in pixels
             if let Ok(mut delta) = mouse_delta.lock() {
-                scaling[(0, 3)] = (*delta).0 * 0.001;
-                scaling[(1, 3)] = -(*delta).1 * 0.001;
-                // *delta = (0.0, 0.0);
+                let x = (*delta).0 * 0.001 * camera_spd;
+                let y = -(*delta).1 * 0.001 * camera_spd;
+                rotation = glm::rotation(x, &glm::vec3(0.0, 1.0, 0.0)) * rotation;
+                rotation = glm::rotation(y, &glm::vec3(-1.0, 0.0, 0.0)) * rotation;
+                *delta = (0.0, 0.0);
+                // println!["{:?}", glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0))]
             }
-
+            camera_matrix = perspective * rotation * translation;
             unsafe {
                 gl::ClearColor(0.163, 0.163, 0.163, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -239,7 +266,7 @@ fn main() {
                     unilocation,
                     1,
                     gl::FALSE,
-                    scaling.as_slice().as_ptr() as *const f32,
+                    camera_matrix.as_slice().as_ptr() as *const f32,
                 );
                 gl::DrawElements(
                     gl::TRIANGLES,
