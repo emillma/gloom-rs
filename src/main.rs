@@ -1,5 +1,6 @@
 extern crate nalgebra_glm as glm;
 // use gl::types::*;
+
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::{mem, os::raw::c_void, ptr};
@@ -17,6 +18,7 @@ use glutin::event::{
     WindowEvent,
 };
 use glutin::event_loop::ControlFlow;
+use std::ffi::CString;
 
 const SCREEN_W: u32 = 800;
 const SCREEN_H: u32 = 800;
@@ -64,7 +66,6 @@ unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>)
             data.push(colors[4 * i + j])
         }
     }
-    println!("data {:?}", data);
 
     let mut vbo: gl::types::GLuint = 0;
     gl::GenBuffers(1, &mut vbo);
@@ -116,8 +117,11 @@ fn main() {
     let cb = glutin::ContextBuilder::new().with_vsync(true);
     let windowed_context = cb.build_windowed(wb, &el).unwrap();
     // Uncomment these if you want to use the mouse for controls, but want it to be confined to the screen and/or invisible.
-    // windowed_context.window().set_cursor_grab(true).expect("failed to grab cursor");
-    // windowed_context.window().set_cursor_visible(false);
+    windowed_context
+        .window()
+        .set_cursor_grab(true)
+        .expect("failed to grab cursor");
+    windowed_context.window().set_cursor_visible(false);
     // Set up a shared vector for keeping track of currently pressed keys
     let arc_pressed_keys = Arc::new(Mutex::new(Vec::<VirtualKeyCode>::with_capacity(10)));
     // Make a reference of this vector to send to the render thread
@@ -163,21 +167,30 @@ fn main() {
 
         //set up verticies
         let n: u32 = 3;
-        let (vertices, colors) = get_triangles(n);
+        let (mut vertices, colors) = get_triangles(n);
 
         //set up indices
         let indices: Vec<u32> = (0..(n * 3)).collect();
-
+        let unilocation: gl::types::GLint;
         unsafe {
             //reate the vao
             let vao = create_vao(&vertices, &colors, &indices);
+            vertices[0] = 2.;
             gl::BindVertexArray(vao);
-
             //I personally think this was way to difficult to figure out...
             let shader_builder = shader::ShaderBuilder::new();
             let shader_builder = shader_builder.attach_file("shaders\\simple.vert");
             let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
             let shader_builder = shader_builder.link();
+
+            let cname =
+                CString::new("ViewProjection").expect("expected uniform name to have no nul bytes");
+            unilocation = gl::GetUniformLocation(
+                shader_builder.program_id,
+                cname.as_bytes_with_nul().as_ptr() as *const i8,
+            );
+            println!("unilocation {:?}", unilocation);
+
             gl::UseProgram(shader_builder.program_id);
         }
 
@@ -189,7 +202,7 @@ fn main() {
         // The main rendering loop
         loop {
             let now = std::time::Instant::now();
-            let _elapsed = now.duration_since(first_frame_time).as_secs_f32();
+            let elapsed = now.duration_since(first_frame_time).as_secs_f32();
             let delta_time = now.duration_since(last_frame_time).as_secs_f32();
             last_frame_time = now;
 
@@ -208,16 +221,26 @@ fn main() {
                     }
                 }
             }
+            let mut scaling: glm::Mat4 = glm::scaling(&glm::vec3(1.0, 1.0, 1.0));
+            scaling[(0, 0)] = elapsed.cos().powf(2.);
+
             // Handle mouse movement. delta contains the x and y movement of the mouse since last frame in pixels
             if let Ok(mut delta) = mouse_delta.lock() {
-                *delta = (0.0, 0.0);
+                scaling[(0, 3)] = (*delta).0 * 0.001;
+                scaling[(1, 3)] = -(*delta).1 * 0.001;
+                // *delta = (0.0, 0.0);
             }
 
             unsafe {
                 gl::ClearColor(0.163, 0.163, 0.163, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-
                 gl::Clear(gl::COLOR_BUFFER_BIT);
+                gl::UniformMatrix4fv(
+                    unilocation,
+                    1,
+                    gl::FALSE,
+                    scaling.as_slice().as_ptr() as *const f32,
+                );
                 gl::DrawElements(
                     gl::TRIANGLES,
                     indices.len() as i32,
