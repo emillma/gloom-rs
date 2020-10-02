@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::{mem, os::raw::c_void, ptr};
 
+mod mesh;
 mod shader;
 mod triangles;
 mod util;
@@ -21,6 +22,7 @@ use glutin::event::{
 use glutin::event_loop::ControlFlow;
 use std::ffi::CString;
 
+use mesh::{Helicopter, Terrain};
 const SCREEN_W: u32 = 800;
 const SCREEN_H: u32 = 800;
 
@@ -120,9 +122,9 @@ fn main() {
     // Uncomment these if you want to use the mouse for controls, but want it to be confined to the screen and/or invisible.
     windowed_context
         .window()
-        .set_cursor_grab(true)
+        .set_cursor_grab(false)
         .expect("failed to grab cursor");
-    windowed_context.window().set_cursor_visible(false);
+    windowed_context.window().set_cursor_visible(true);
     // Set up a shared vector for keeping track of currently pressed keys
     let arc_pressed_keys = Arc::new(Mutex::new(Vec::<VirtualKeyCode>::with_capacity(10)));
     // Make a reference of this vector to send to the render thread
@@ -168,15 +170,16 @@ fn main() {
 
         //set up verticies
         let n: u32 = 3;
-        let (mut vertices, colors) = get_triangles(n);
 
-        //set up indices
-        let indices: Vec<u32> = (0..(n * 3)).collect();
         let unilocation: gl::types::GLint;
+        let lunar_surface = Terrain::load("resources\\lunarsurface.obj");
         unsafe {
             //reate the vao
-            let vao = create_vao(&vertices, &colors, &indices);
-            vertices[0] = 2.;
+            let vao = create_vao(
+                &lunar_surface.vertices,
+                &lunar_surface.colors,
+                &lunar_surface.indices,
+            );
             gl::BindVertexArray(vao);
             //I personally think this was way to difficult to figure out...
             let shader_builder = shader::ShaderBuilder::new();
@@ -200,11 +203,11 @@ fn main() {
         let camera_spd = 1.;
         let mut last_frame_time = std::time::Instant::now();
 
-        //The perspective matrix
+        //The perspective matrix of the camera
         let perspective: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 100.);
-        //The Translation matrix, used to store the current translation
+        //The Translation matrix, used to store the current translation of the camera
         let mut translation: glm::Mat4 = glm::translation(&glm::vec3(0.0, 0.0, 0.0));
-        //The Rotation matrix, used to store the current translation
+        //The Rotation matrix, used to store the current translation of the camera
         let mut rotation: glm::Mat4 = glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0));
 
         //The final camera matrix, used to combine the other matricies
@@ -262,7 +265,7 @@ fn main() {
                 );
                 gl::DrawElements(
                     gl::TRIANGLES,
-                    indices.len() as i32,
+                    lunar_surface.indices.len() as i32,
                     gl::UNSIGNED_INT,
                     ptr::null(),
                 );
