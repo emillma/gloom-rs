@@ -295,9 +295,10 @@ fn main() {
                     program_id,
                     cname.as_bytes_with_nul().as_ptr() as *const i8,
                 );
-                let lightsource = glm::normalize(&glm::vec3((0.1 * elapsed).cos(), -0.5, 0.3));
+                let lightsource = camera_matrix * glm::vec4(3000., -1000., 0., 1.);
 
-                gl::Uniform3fv(unilocation, 1, lightsource.as_ptr() as *const f32);
+                println!["{:?}", lightsource];
+                gl::Uniform4fv(unilocation, 1, lightsource.as_ptr() as *const f32);
 
                 gl::DrawElements(
                     gl::TRIANGLES,
