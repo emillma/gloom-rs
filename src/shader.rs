@@ -6,7 +6,7 @@ pub struct Shader {
 }
 
 pub struct ShaderBuilder {
-    program_id: u32,
+    pub program_id: u32,
     shaders: Vec<u32>,
 }
 

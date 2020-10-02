@@ -6,9 +6,11 @@ layout(location = 2) in vec3 vertex_normal;
 
 
 uniform mat4 ViewProjection;
+uniform vec3 LightSource;
 
 out vec4 theColor;
 out vec3 theNormal;
+out vec3 theLightSource;
 
 mat4 matrix = mat4(
    1.0, 0.0, 0.0, 0.0, // first column (not row!)
@@ -20,7 +22,8 @@ mat4 matrix = mat4(
 void main()
 {
     gl_Position = ViewProjection * matrix *  vec4(vertex_position, 1.);
-    
+
     theColor = vertex_color;
     theNormal = vertex_normal;
+    theLightSource = LightSource;
 }

@@ -140,9 +140,9 @@ fn main() {
     // Uncomment these if you want to use the mouse for controls, but want it to be confined to the screen and/or invisible.
     windowed_context
         .window()
-        .set_cursor_grab(false)
+        .set_cursor_grab(true)
         .expect("failed to grab cursor");
-    windowed_context.window().set_cursor_visible(true);
+    windowed_context.window().set_cursor_visible(false);
     // Set up a shared vector for keeping track of currently pressed keys
     let arc_pressed_keys = Arc::new(Mutex::new(Vec::<VirtualKeyCode>::with_capacity(10)));
     // Make a reference of this vector to send to the render thread
@@ -189,7 +189,7 @@ fn main() {
         //set up verticies
         let n: u32 = 3;
 
-        let unilocation: gl::types::GLint;
+        let program_id: gl::types::GLuint;
         let lunar_surface = Terrain::load("resources\\lunarsurface.obj");
         unsafe {
             //reate the vao
@@ -206,14 +206,7 @@ fn main() {
             let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
             let shader_builder = shader_builder.link();
 
-            let cname =
-                CString::new("ViewProjection").expect("expected uniform name to have no nul bytes");
-            unilocation = gl::GetUniformLocation(
-                shader_builder.program_id,
-                cname.as_bytes_with_nul().as_ptr() as *const i8,
-            );
-            println!("unilocation {:?}", unilocation);
-
+            program_id = shader_builder.program_id;
             gl::UseProgram(shader_builder.program_id);
         }
 
@@ -221,7 +214,7 @@ fn main() {
         let movement_spd = 100.;
         let camera_spd = 1.;
         let mut last_frame_time = std::time::Instant::now();
-
+        let first_frame_time = std::time::Instant::now();
         //The perspective matrix of the camera
         let perspective: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 50000.);
         //The Translation matrix, used to store the current translation of the camera
@@ -235,6 +228,7 @@ fn main() {
         loop {
             let now = std::time::Instant::now();
             let delta_time = now.duration_since(last_frame_time).as_secs_f32();
+            let elapsed = now.duration_since(first_frame_time).as_secs_f32();
             last_frame_time = now;
 
             // Handle keyboard input
@@ -281,12 +275,30 @@ fn main() {
                 gl::ClearColor(0.163, 0.163, 0.163, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
+
+                let cname = CString::new("ViewProjection")
+                    .expect("expected uniform name to have no nul bytes");
+                let unilocation = gl::GetUniformLocation(
+                    program_id,
+                    cname.as_bytes_with_nul().as_ptr() as *const i8,
+                );
                 gl::UniformMatrix4fv(
                     unilocation,
                     1,
                     gl::FALSE,
                     camera_matrix.as_slice().as_ptr() as *const f32,
                 );
+
+                let cname = CString::new("LightSource")
+                    .expect("expected uniform name to have no nul bytes");
+                let unilocation = gl::GetUniformLocation(
+                    program_id,
+                    cname.as_bytes_with_nul().as_ptr() as *const i8,
+                );
+                let lightsource = glm::normalize(&glm::vec3((0.1 * elapsed).cos(), -0.5, 0.3));
+
+                gl::Uniform3fv(unilocation, 1, lightsource.as_ptr() as *const f32);
+
                 gl::DrawElements(
                     gl::TRIANGLES,
                     lunar_surface.index_count,
