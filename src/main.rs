@@ -54,7 +54,12 @@ fn offset<T>(n: u32) -> *const c_void {
 // ptr::null()
 
 // == // Modify and complete the function below for the first task
-unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>) -> u32 {
+unsafe fn create_vao(
+    vertices: &Vec<f32>,
+    colors: &Vec<f32>,
+    normals: &Vec<f32>,
+    indices: &Vec<u32>,
+) -> u32 {
     // gl::BindBuffer(gl::ARRAY_BUFFER, 0);
     let mut vao: gl::types::GLuint = 0;
     gl::GenVertexArrays(1, &mut vao);
@@ -67,6 +72,9 @@ unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>)
 
         for j in 0..4 {
             data.push(colors[4 * i + j])
+        }
+        for j in 0..3 {
+            data.push(normals[3 * i + j])
         }
     }
 
@@ -86,17 +94,27 @@ unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>)
         3,         // the number of components per generic vertex attribute
         gl::FLOAT, // data type
         gl::FALSE, // normalized (int-to-float conversion)
-        (7 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
-        std::ptr::null(),                                     // offset of the first component
+        (10 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        std::ptr::null(),                                      // offset of the first component
     );
-    gl::EnableVertexAttribArray(1); // this is "layout (location = 0)" in vertex shader
+    gl::EnableVertexAttribArray(1); // this is "layout (location = 1)" in vertex shader
     gl::VertexAttribPointer(
         1,         // index of the generic vertex attribute ("layout (location = 0)")
         4,         // the number of components per generic vertex attribute
         gl::FLOAT, // data type
         gl::FALSE, // normalized (int-to-float conversion)
-        (7 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
-        offset::<f32>(3),                                     // offset of the first component
+        (10 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        offset::<f32>(3),                                      // offset of the first component
+    );
+
+    gl::EnableVertexAttribArray(2); // this is "layout (location = 1)" in vertex shader
+    gl::VertexAttribPointer(
+        2,         // index of the generic vertex attribute ("layout (location = 0)")
+        4,         // the number of components per generic vertex attribute
+        gl::FLOAT, // data type
+        gl::FALSE, // normalized (int-to-float conversion)
+        (10 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
+        offset::<f32>(7),                                      // offset of the first component
     );
     let mut ibo: gl::types::GLuint = 0;
     gl::GenBuffers(1, &mut ibo);
@@ -178,6 +196,7 @@ fn main() {
             let vao = create_vao(
                 &lunar_surface.vertices,
                 &lunar_surface.colors,
+                &lunar_surface.normals,
                 &lunar_surface.indices,
             );
             gl::BindVertexArray(vao);
@@ -199,12 +218,12 @@ fn main() {
         }
 
         // Used to demonstrate keyboard handling -- feel free to remove
-        let movement_spd = 1.;
+        let movement_spd = 100.;
         let camera_spd = 1.;
         let mut last_frame_time = std::time::Instant::now();
 
         //The perspective matrix of the camera
-        let perspective: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 100.);
+        let perspective: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 50000.);
         //The Translation matrix, used to store the current translation of the camera
         let mut translation: glm::Mat4 = glm::translation(&glm::vec3(0.0, 0.0, 0.0));
         //The Rotation matrix, used to store the current translation of the camera
@@ -220,15 +239,16 @@ fn main() {
 
             // Handle keyboard input
             if let Ok(keys) = pressed_keys.lock() {
-                let step = delta_time * movement_spd * 3.;
+                let step = delta_time * movement_spd;
 
                 // Used to get a more natural movement of the camera
-                let dirz = step * glm::inverse(&rotation) * glm::vec4(0., 0., 1., 1.);
-                let dirz = glm::vec3(dirz[0], dirz[1], dirz[2]);
-                let dirx = step * glm::inverse(&rotation) * glm::vec4(1., 0., 0., 1.);
-                let dirx = glm::vec3(dirx[0], dirx[1], dirx[2]);
-                let diry = step * glm::inverse(&rotation) * glm::vec4(0., 1., 0., 1.);
-                let diry = glm::vec3(diry[0], diry[1], diry[2]);
+                let dirz = glm::inverse(&rotation) * glm::vec4(0., 0., 1., 1.);
+                let dirz = step * glm::normalize(&glm::vec3(dirz[0], 0., dirz[2]));
+
+                let dirx = glm::inverse(&rotation) * glm::vec4(1., 0., 0., 1.);
+                let dirx = step * glm::normalize(&glm::vec3(dirx[0], 0., dirx[2]));
+
+                let diry = glm::vec3(0., step, 0.);
                 for key in keys.iter() {
                     match key {
                         VirtualKeyCode::W => translation = glm::translation(&dirz) * translation,
@@ -245,10 +265,14 @@ fn main() {
             }
             // Handle mouse movement. delta contains the x and y movement of the mouse since last frame in pixels
             if let Ok(mut delta) = mouse_delta.lock() {
-                let x = (*delta).0 * 0.001 * camera_spd;
-                let y = -(*delta).1 * 0.001 * camera_spd;
-                rotation = glm::rotation(x, &glm::vec3(0.0, 1.0, 0.0)) * rotation;
-                rotation = glm::rotation(y, &glm::vec3(-1.0, 0.0, 0.0)) * rotation;
+                let yaw_delta = (*delta).0 * 0.001 * camera_spd;
+                let pitch_dleta = -(*delta).1 * 0.001 * camera_spd;
+
+                // this one was wrong in the previous assignment
+                rotation = glm::rotation(pitch_dleta, &glm::vec3(-1.0, 0.0, 0.0))
+                    * rotation
+                    * glm::rotation(yaw_delta, &glm::vec3(0.0, 1.0, 0.0));
+                // rotation = glm::rotation(yaw, &glm::vec3(-1.0, 0.0, 0.0)) * rotation;
                 *delta = (0.0, 0.0);
                 // println!["{:?}", glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0))]
             }
@@ -265,7 +289,7 @@ fn main() {
                 );
                 gl::DrawElements(
                     gl::TRIANGLES,
-                    lunar_surface.indices.len() as i32,
+                    lunar_surface.index_count,
                     gl::UNSIGNED_INT,
                     ptr::null(),
                 );
