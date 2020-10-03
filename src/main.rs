@@ -59,9 +59,9 @@ unsafe fn create_vao(
     colors: &Vec<f32>,
     normals: &Vec<f32>,
     indices: &Vec<u32>,
+    mut vao: gl::types::GLuint,
 ) -> u32 {
     // gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-    let mut vao: gl::types::GLuint = 0;
     gl::GenVertexArrays(1, &mut vao);
     gl::BindVertexArray(vao);
     let mut data: Vec<f32> = Vec::new();
@@ -116,7 +116,7 @@ unsafe fn create_vao(
         (10 * std::mem::size_of::<f32>()) as gl::types::GLint, // stride (byte offset between consecutive attributes)
         offset::<f32>(7),                                      // offset of the first component
     );
-    let mut ibo: gl::types::GLuint = 0;
+    let mut ibo: gl::types::GLuint = vao;
     gl::GenBuffers(1, &mut ibo);
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
     gl::BufferData(
@@ -189,29 +189,74 @@ fn main() {
         //set up verticies
         let n: u32 = 3;
 
-        let program_id: gl::types::GLuint;
+        let lunar_program_id: gl::types::GLuint;
+        let heli_program_id: gl::types::GLuint;
+        let lunar_vao: gl::types::GLuint = 1;
+        let heli_vao: gl::types::GLuint = 2;
+        let main_rotor_vao: gl::types::GLuint = 3;
+        let tail_rotor_vao: gl::types::GLuint = 4;
+        let door_vao: gl::types::GLuint = 5;
         let lunar_surface = Terrain::load("resources\\lunarsurface.obj");
+        let helicopter = Helicopter::load("resources\\helicopter.obj");
         unsafe {
+            //create vaos
             //reate the vao
-            let vao = create_vao(
+            create_vao(
                 &lunar_surface.vertices,
                 &lunar_surface.colors,
                 &lunar_surface.normals,
                 &lunar_surface.indices,
+                lunar_vao,
             );
-            gl::BindVertexArray(vao);
+            create_vao(
+                &helicopter.body.vertices,
+                &helicopter.body.colors,
+                &helicopter.body.normals,
+                &helicopter.body.indices,
+                heli_vao,
+            );
+            create_vao(
+                &helicopter.main_rotor.vertices,
+                &helicopter.main_rotor.colors,
+                &helicopter.main_rotor.normals,
+                &helicopter.main_rotor.indices,
+                main_rotor_vao,
+            );
+            create_vao(
+                &helicopter.tail_rotor.vertices,
+                &helicopter.tail_rotor.colors,
+                &helicopter.tail_rotor.normals,
+                &helicopter.tail_rotor.indices,
+                tail_rotor_vao,
+            );
+            create_vao(
+                &helicopter.door.vertices,
+                &helicopter.door.colors,
+                &helicopter.door.normals,
+                &helicopter.door.indices,
+                door_vao,
+            );
+            gl::BindVertexArray(lunar_vao);
             //I personally think this was way to difficult to figure out...
             let shader_builder = shader::ShaderBuilder::new();
             let shader_builder = shader_builder.attach_file("shaders\\simple.vert");
             let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
             let shader_builder = shader_builder.link();
+            lunar_program_id = shader_builder.program_id;
+            gl::UseProgram(lunar_program_id);
 
-            program_id = shader_builder.program_id;
-            gl::UseProgram(shader_builder.program_id);
+            // gl::BindVertexArray(vao);
+            // //I personally think this was way to difficult to figure out...
+            // let shader_builder = shader::ShaderBuilder::new();
+            // let shader_builder = shader_builder.attach_file("shaders\\simple.vert");
+            // let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
+            // let shader_builder = shader_builder.link();
+            // heli_program_id = shader_builder.program_id;
+            // gl::UseProgram(heli_program_id);
         }
 
         // Used to demonstrate keyboard handling -- feel free to remove
-        let movement_spd = 100.;
+        let movement_spd = 10.;
         let camera_spd = 1.;
         let mut last_frame_time = std::time::Instant::now();
         let first_frame_time = std::time::Instant::now();
@@ -279,7 +324,7 @@ fn main() {
                 let cname = CString::new("ViewProjection")
                     .expect("expected uniform name to have no nul bytes");
                 let unilocation = gl::GetUniformLocation(
-                    program_id,
+                    lunar_program_id,
                     cname.as_bytes_with_nul().as_ptr() as *const i8,
                 );
                 gl::UniformMatrix4fv(
@@ -292,20 +337,28 @@ fn main() {
                 let cname = CString::new("LightSource")
                     .expect("expected uniform name to have no nul bytes");
                 let unilocation = gl::GetUniformLocation(
-                    program_id,
+                    lunar_program_id,
                     cname.as_bytes_with_nul().as_ptr() as *const i8,
                 );
                 let lightsource = camera_matrix * glm::vec4(3000., -1000., 0., 1.);
 
                 println!["{:?}", lightsource];
                 gl::Uniform4fv(unilocation, 1, lightsource.as_ptr() as *const f32);
-
-                gl::DrawElements(
-                    gl::TRIANGLES,
-                    lunar_surface.index_count,
-                    gl::UNSIGNED_INT,
-                    ptr::null(),
-                );
+                for vao in vec![
+                    lunar_vao,
+                    heli_vao,
+                    main_rotor_vao,
+                    tail_rotor_vao,
+                    door_vao,
+                ] {
+                    gl::BindVertexArray(vao);
+                    gl::DrawElements(
+                        gl::TRIANGLES,
+                        lunar_surface.index_count,
+                        gl::UNSIGNED_INT,
+                        ptr::null(),
+                    );
+                }
                 // Issue the necessary commands to draw your scene here
             }
 
