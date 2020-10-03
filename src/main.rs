@@ -7,9 +7,11 @@ use std::thread;
 use std::{mem, os::raw::c_void, ptr};
 
 mod mesh;
+mod scene_graph;
 mod shader;
 mod triangles;
 mod util;
+
 use triangles::get_triangles;
 
 use glutin::event::{
@@ -23,6 +25,8 @@ use glutin::event_loop::ControlFlow;
 use std::ffi::CString;
 
 use mesh::{Helicopter, Terrain};
+use scene_graph::SceneNode;
+
 const SCREEN_W: u32 = 800;
 const SCREEN_H: u32 = 800;
 
@@ -256,19 +260,18 @@ fn main() {
         }
 
         // Used to demonstrate keyboard handling -- feel free to remove
-        let movement_spd = 10.;
+        let movement_spd = 100.;
         let camera_spd = 1.;
         let mut last_frame_time = std::time::Instant::now();
         let first_frame_time = std::time::Instant::now();
         //The perspective matrix of the camera
-        let perspective: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 50000.);
+        let camer_intrinsic_matrix: glm::Mat4 = glm::perspective(1., PI / 2., 0.1, 50000.);
         //The Translation matrix, used to store the current translation of the camera
-        let mut translation: glm::Mat4 = glm::translation(&glm::vec3(0.0, 0.0, 0.0));
+        let mut camera_translation_matrix: glm::Mat4 = glm::translation(&glm::vec3(0.0, 0.0, 0.0));
         //The Rotation matrix, used to store the current translation of the camera
-        let mut rotation: glm::Mat4 = glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0));
+        let mut camera_rotation_matrix: glm::Mat4 = glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0));
 
         //The final camera matrix, used to combine the other matricies
-        let mut camera_matrix: glm::Mat4;
         // The main rendering loop
         loop {
             let now = std::time::Instant::now();
@@ -281,23 +284,41 @@ fn main() {
                 let step = delta_time * movement_spd;
 
                 // Used to get a more natural movement of the camera
-                let dirz = glm::inverse(&rotation) * glm::vec4(0., 0., 1., 1.);
+                let dirz = glm::inverse(&camera_rotation_matrix) * glm::vec4(0., 0., 1., 1.);
                 let dirz = step * glm::normalize(&glm::vec3(dirz[0], 0., dirz[2]));
 
-                let dirx = glm::inverse(&rotation) * glm::vec4(1., 0., 0., 1.);
+                let dirx = glm::inverse(&camera_rotation_matrix) * glm::vec4(1., 0., 0., 1.);
                 let dirx = step * glm::normalize(&glm::vec3(dirx[0], 0., dirx[2]));
 
                 let diry = glm::vec3(0., step, 0.);
                 for key in keys.iter() {
                     match key {
-                        VirtualKeyCode::W => translation = glm::translation(&dirz) * translation,
-                        VirtualKeyCode::S => translation = glm::translation(&-dirz) * translation,
+                        VirtualKeyCode::W => {
+                            camera_translation_matrix =
+                                glm::translation(&dirz) * camera_translation_matrix
+                        }
+                        VirtualKeyCode::S => {
+                            camera_translation_matrix =
+                                glm::translation(&-dirz) * camera_translation_matrix
+                        }
 
-                        VirtualKeyCode::A => translation = glm::translation(&dirx) * translation,
-                        VirtualKeyCode::D => translation = glm::translation(&-dirx) * translation,
+                        VirtualKeyCode::A => {
+                            camera_translation_matrix =
+                                glm::translation(&dirx) * camera_translation_matrix
+                        }
+                        VirtualKeyCode::D => {
+                            camera_translation_matrix =
+                                glm::translation(&-dirx) * camera_translation_matrix
+                        }
 
-                        VirtualKeyCode::Q => translation = glm::translation(&diry) * translation,
-                        VirtualKeyCode::E => translation = glm::translation(&-diry) * translation,
+                        VirtualKeyCode::Q => {
+                            camera_translation_matrix =
+                                glm::translation(&diry) * camera_translation_matrix
+                        }
+                        VirtualKeyCode::E => {
+                            camera_translation_matrix =
+                                glm::translation(&-diry) * camera_translation_matrix
+                        }
                         _ => {}
                     }
                 }
@@ -308,20 +329,37 @@ fn main() {
                 let pitch_dleta = -(*delta).1 * 0.001 * camera_spd;
 
                 // this one was wrong in the previous assignment
-                rotation = glm::rotation(pitch_dleta, &glm::vec3(-1.0, 0.0, 0.0))
-                    * rotation
+                camera_rotation_matrix = glm::rotation(pitch_dleta, &glm::vec3(-1.0, 0.0, 0.0))
+                    * camera_rotation_matrix
                     * glm::rotation(yaw_delta, &glm::vec3(0.0, 1.0, 0.0));
                 // rotation = glm::rotation(yaw, &glm::vec3(-1.0, 0.0, 0.0)) * rotation;
                 *delta = (0.0, 0.0);
                 // println!["{:?}", glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0))]
             }
-            camera_matrix = perspective * rotation * translation;
+            let mut root_scene = SceneNode::new();
+            let mut lunar_scene = SceneNode::from_vao(lunar_vao, lunar_surface.index_count);
+            let mut heli_scene = SceneNode::from_vao(heli_vao, helicopter.body.index_count);
+            let mut main_rotor_scene =
+                SceneNode::from_vao(main_rotor_vao, helicopter.main_rotor.index_count);
+            let mut tail_rotor_scene =
+                SceneNode::from_vao(tail_rotor_vao, helicopter.tail_rotor.index_count);
+            let door_scene = SceneNode::from_vao(door_vao, helicopter.door.index_count);
+
+            root_scene.add_child(&lunar_scene);
+            root_scene.add_child(&heli_scene);
+            heli_scene.add_child(&main_rotor_scene);
+            heli_scene.add_child(&tail_rotor_scene);
+            heli_scene.add_child(&door_scene);
+
+            let lightsource = glm::vec3::<f32>(3000. * (0. * elapsed).cos(), 1000., 0.);
+            let view_projection_matrix =
+                camer_intrinsic_matrix * camera_rotation_matrix * camera_translation_matrix;
             unsafe {
                 gl::ClearColor(0.163, 0.163, 0.163, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
-                let cname = CString::new("ViewProjection")
+                let cname = CString::new("ViewProjectionMatrix")
                     .expect("expected uniform name to have no nul bytes");
                 let unilocation = gl::GetUniformLocation(
                     lunar_program_id,
@@ -331,8 +369,44 @@ fn main() {
                     unilocation,
                     1,
                     gl::FALSE,
-                    camera_matrix.as_slice().as_ptr() as *const f32,
+                    view_projection_matrix.as_slice().as_ptr() as *const f32,
                 );
+
+                let cname = CString::new("CameraPosition")
+                    .expect("expected uniform name to have no nul bytes");
+                let unilocation = gl::GetUniformLocation(
+                    lunar_program_id,
+                    cname.as_bytes_with_nul().as_ptr() as *const i8,
+                );
+                gl::Uniform3fv(
+                    unilocation,
+                    1,
+                    glm::vec4_to_vec3(
+                        &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.)),
+                    )
+                    .as_ptr() as *const f32,
+                );
+                println![
+                    "{:?}",
+                    glm::vec4_to_vec3(
+                        &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.))
+                    )
+                ];
+                for vao in vec![
+                    lunar_vao,
+                    heli_vao,
+                    main_rotor_vao,
+                    tail_rotor_vao,
+                    door_vao,
+                ] {
+                    gl::BindVertexArray(vao);
+                    gl::DrawElements(
+                        gl::TRIANGLES,
+                        lunar_surface.index_count,
+                        gl::UNSIGNED_INT,
+                        ptr::null(),
+                    );
+                }
 
                 let cname = CString::new("LightSource")
                     .expect("expected uniform name to have no nul bytes");
@@ -340,10 +414,7 @@ fn main() {
                     lunar_program_id,
                     cname.as_bytes_with_nul().as_ptr() as *const i8,
                 );
-                let lightsource = camera_matrix * glm::vec4(3000., -1000., 0., 1.);
-
-                println!["{:?}", lightsource];
-                gl::Uniform4fv(unilocation, 1, lightsource.as_ptr() as *const f32);
+                gl::Uniform3fv(unilocation, 1, lightsource.as_ptr() as *const f32);
                 for vao in vec![
                     lunar_vao,
                     heli_vao,

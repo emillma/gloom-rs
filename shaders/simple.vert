@@ -1,12 +1,16 @@
 #version 430 core
 
-layout(location = 0) in vec3 vertex_position;
+layout(location = 0) in vec3 VertexPosition;
 layout(location = 1) in vec4 vertex_color;
 layout(location = 2) in vec3 vertex_normal;
 
 
-uniform mat4 ViewProjection;
-uniform vec4 LightSource;
+// uniform mat4 CameraTranslation;
+uniform mat4 ViewProjectionMatrix;
+uniform vec3 CameraPosition;
+uniform vec3 LightSource;
+
+// mat4 ViewProjection = CameraIntrisinc * CameraTranslation;
 
 out vec4 theColor;
 out vec3 N;
@@ -23,12 +27,12 @@ mat4 matrix = mat4(
 
 void main()
 {
-    gl_Position = ViewProjection *  vec4(vertex_position, 1.);
+    gl_Position = ViewProjectionMatrix *  vec4(VertexPosition, 1.);
 
     theColor = vertex_color;
     // theNormal = vec3(ViewProjection *  vec4(vertex_normal, 0.));
-    N = -vec3(ViewProjection *  vec4(vertex_normal, 0.));
-    L =  normalize(vec3(LightSource - gl_Position));
-    V = normalize(vec3(gl_Position));
+    N = normalize(vertex_normal);
+    L =  normalize(LightSource - VertexPosition);
+    V = normalize(CameraPosition - VertexPosition);
     R = 2 * dot(L, N) * N - L;
 }

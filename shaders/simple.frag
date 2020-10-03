@@ -12,7 +12,7 @@ float kd = 0.8;
 float diffuse_gain;
 
 float specular_gain;
-float ks = 0.2;
+float ks = 0.3;
 float alpha = 12.;
 
 float ambient = 0.1;
