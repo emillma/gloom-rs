@@ -70,6 +70,7 @@ impl SceneNode {
     pub fn set_position(&mut self, position: glm::Vec3) {
         self.position = position;
     }
+    #[allow(dead_code)]
     pub fn print(&self) {
         let m = self.current_transformation_matrix;
         let matrix_string = format!(
@@ -133,57 +134,47 @@ pub unsafe fn draw_scene(
     // Check if node is drawable, set uniforms, draw
 
     if root.index_count > 1 {
-        unsafe {
-            let cname = CString::new("ViewProjectionMatrix")
-                .expect("expected uniform name to have no nul bytes");
-            let unilocation = gl::GetUniformLocation(
-                *program_id,
-                cname.as_bytes_with_nul().as_ptr() as *const i8,
-            );
-            gl::UniformMatrix4fv(
-                unilocation,
-                1,
-                gl::FALSE,
-                view_projection_matrix.as_slice().as_ptr() as *const f32,
-            );
+        let cname = CString::new("ViewProjectionMatrix")
+            .expect("expected uniform name to have no nul bytes");
+        let unilocation =
+            gl::GetUniformLocation(*program_id, cname.as_bytes_with_nul().as_ptr() as *const i8);
+        gl::UniformMatrix4fv(
+            unilocation,
+            1,
+            gl::FALSE,
+            view_projection_matrix.as_slice().as_ptr() as *const f32,
+        );
 
-            let cname =
-                CString::new("SceneTransfrom").expect("expected uniform name to have no nul bytes");
-            let unilocation = gl::GetUniformLocation(
-                *program_id,
-                cname.as_bytes_with_nul().as_ptr() as *const i8,
-            );
-            gl::UniformMatrix4fv(
-                unilocation,
-                1,
-                gl::FALSE,
-                root.current_transformation_matrix.as_slice().as_ptr() as *const f32,
-            );
+        let cname =
+            CString::new("SceneTransfrom").expect("expected uniform name to have no nul bytes");
+        let unilocation =
+            gl::GetUniformLocation(*program_id, cname.as_bytes_with_nul().as_ptr() as *const i8);
+        gl::UniformMatrix4fv(
+            unilocation,
+            1,
+            gl::FALSE,
+            root.current_transformation_matrix.as_slice().as_ptr() as *const f32,
+        );
 
-            let cname =
-                CString::new("CameraPosition").expect("expected uniform name to have no nul bytes");
-            let unilocation = gl::GetUniformLocation(
-                *program_id,
-                cname.as_bytes_with_nul().as_ptr() as *const i8,
-            );
-            gl::Uniform3fv(unilocation, 1, camera_position.as_ptr() as *const f32);
+        let cname =
+            CString::new("CameraPosition").expect("expected uniform name to have no nul bytes");
+        let unilocation =
+            gl::GetUniformLocation(*program_id, cname.as_bytes_with_nul().as_ptr() as *const i8);
+        gl::Uniform3fv(unilocation, 1, camera_position.as_ptr() as *const f32);
 
-            let cname =
-                CString::new("LightSource").expect("expected uniform name to have no nul bytes");
-            let unilocation = gl::GetUniformLocation(
-                *program_id,
-                cname.as_bytes_with_nul().as_ptr() as *const i8,
-            );
-            gl::Uniform3fv(unilocation, 1, lightsource.as_ptr() as *const f32);
+        let cname =
+            CString::new("LightSource").expect("expected uniform name to have no nul bytes");
+        let unilocation =
+            gl::GetUniformLocation(*program_id, cname.as_bytes_with_nul().as_ptr() as *const i8);
+        gl::Uniform3fv(unilocation, 1, lightsource.as_ptr() as *const f32);
 
-            gl::BindVertexArray(root.vao_id);
-            gl::DrawElements(
-                gl::TRIANGLES,
-                root.index_count,
-                gl::UNSIGNED_INT,
-                ptr::null(),
-            );
-        }
+        gl::BindVertexArray(root.vao_id);
+        gl::DrawElements(
+            gl::TRIANGLES,
+            root.index_count,
+            gl::UNSIGNED_INT,
+            ptr::null(),
+        );
     }
     // Recurse
     for &child in &root.children {

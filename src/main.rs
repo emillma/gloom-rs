@@ -9,10 +9,7 @@ use std::{mem, os::raw::c_void, ptr};
 mod mesh;
 mod scene_graph;
 mod shader;
-mod triangles;
 mod util;
-
-use triangles::get_triangles;
 
 use glutin::event::{
     DeviceEvent,
@@ -22,7 +19,6 @@ use glutin::event::{
     WindowEvent,
 };
 use glutin::event_loop::ControlFlow;
-use std::ffi::CString;
 
 use mesh::{Helicopter, Terrain};
 use scene_graph::{draw_scene, update_node_transformations, HelicopterStruct, SceneNode};
@@ -191,7 +187,6 @@ fn main() {
         }
 
         //set up verticies
-        let n: u32 = 3;
 
         let program_id: gl::types::GLuint;
         let lunar_vao: gl::types::GLuint = 1;
@@ -328,23 +323,24 @@ fn main() {
             }
             let mut root_scene = SceneNode::new();
 
-            let mut lunar_scene =
+            let lunar_scene =
                 SceneNode::from_vao(lunar_vao, lunar_surface.index_count, glm::vec3(0., 0., 0.));
 
             let mut helicopters: Vec<HelicopterStruct> = Vec::new();
-            for i in 0..5 {
+            let heli_n = 5;
+            for _ in 0..heli_n {
                 let mut heli_scene = SceneNode::from_vao(
                     heli_vao,
                     helicopter.body.index_count,
                     glm::vec3(0., 0., 0.),
                 );
 
-                let mut main_rotor_scene = SceneNode::from_vao(
+                let main_rotor_scene = SceneNode::from_vao(
                     main_rotor_vao,
                     helicopter.main_rotor.index_count,
                     glm::vec3(0., 0., 0.),
                 );
-                let mut tail_rotor_scene = SceneNode::from_vao(
+                let tail_rotor_scene = SceneNode::from_vao(
                     tail_rotor_vao,
                     helicopter.tail_rotor.index_count,
                     glm::vec3(0.35, 2.3, 10.4),
@@ -362,7 +358,7 @@ fn main() {
                 heli_scene.add_child(&tail_rotor_scene);
                 heli_scene.add_child(&door_scene);
 
-                let mut heli_struct = HelicopterStruct {
+                let heli_struct = HelicopterStruct {
                     body: heli_scene,
                     main_rotor: main_rotor_scene,
                     tail_rotor: tail_rotor_scene,
@@ -382,12 +378,12 @@ fn main() {
                 let camera_position = glm::vec4_to_vec3(
                     &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.)),
                 );
-                for i in 0..5 {
-                    let pos_var = elapsed + (2. * PI / 5.) * (i as f32);
+                for i in 0..heli_n {
+                    let pos_var = 0.6 * elapsed + (2. * PI / (heli_n as f32)) * (i as f32);
                     helicopters[i].body.set_position(glm::vec3(
-                        30. * pos_var.cos(),
-                        10. + 4. * (1.61803 * pos_var).sin(),
-                        -30. * pos_var.sin(),
+                        40. * pos_var.cos(),
+                        10. + 4. * (2. * pos_var + 0.841 * elapsed).sin(),
+                        -40. * pos_var.sin(),
                     ));
                     helicopters[i].body.set_rotation(glm::vec3(0., pos_var, 0.));
                     helicopters[i].main_rotor.set_rotation(glm::vec3(
