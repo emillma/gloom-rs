@@ -28,6 +28,13 @@ pub struct SceneNode {
     pub children: Vec<*mut SceneNode>,
 }
 
+pub struct HelicopterStruct {
+    pub body: Node,
+    pub main_rotor: Node,
+    pub tail_rotor: Node,
+    pub door: Node,
+}
+
 impl SceneNode {
     pub fn new() -> Node {
         ManuallyDrop::new(Pin::new(Box::new(SceneNode {

@@ -25,7 +25,7 @@ use glutin::event_loop::ControlFlow;
 use std::ffi::CString;
 
 use mesh::{Helicopter, Terrain};
-use scene_graph::{draw_scene, update_node_transformations, SceneNode};
+use scene_graph::{draw_scene, update_node_transformations, HelicopterStruct, SceneNode};
 
 const SCREEN_W: u32 = 800;
 const SCREEN_H: u32 = 800;
@@ -331,31 +331,47 @@ fn main() {
             let mut lunar_scene =
                 SceneNode::from_vao(lunar_vao, lunar_surface.index_count, glm::vec3(0., 0., 0.));
 
-            let mut helicopters: Vec<scene_graph::Node> = Vec::new();
-            let mut heli_scene =
-                SceneNode::from_vao(heli_vao, helicopter.body.index_count, glm::vec3(0., 0., 0.));
+            let mut helicopters: Vec<HelicopterStruct> = Vec::new();
+            for i in 0..5 {
+                let mut heli_scene = SceneNode::from_vao(
+                    heli_vao,
+                    helicopter.body.index_count,
+                    glm::vec3(0., 0., 0.),
+                );
 
-            let mut main_rotor_scene = SceneNode::from_vao(
-                main_rotor_vao,
-                helicopter.main_rotor.index_count,
-                glm::vec3(0., 0., 0.),
-            );
-            let mut tail_rotor_scene = SceneNode::from_vao(
-                tail_rotor_vao,
-                helicopter.tail_rotor.index_count,
-                glm::vec3(0.35, 2.3, 10.4),
-            );
+                let mut main_rotor_scene = SceneNode::from_vao(
+                    main_rotor_vao,
+                    helicopter.main_rotor.index_count,
+                    glm::vec3(0., 0., 0.),
+                );
+                let mut tail_rotor_scene = SceneNode::from_vao(
+                    tail_rotor_vao,
+                    helicopter.tail_rotor.index_count,
+                    glm::vec3(0.35, 2.3, 10.4),
+                );
 
-            let door_scene =
-                SceneNode::from_vao(door_vao, helicopter.door.index_count, glm::vec3(0., 0., 0.));
+                let door_scene = SceneNode::from_vao(
+                    door_vao,
+                    helicopter.door.index_count,
+                    glm::vec3(0., 0., 0.),
+                );
 
-            root_scene.add_child(&lunar_scene);
-            root_scene.add_child(&heli_scene);
-            heli_scene.add_child(&main_rotor_scene);
-            heli_scene.add_child(&tail_rotor_scene);
-            heli_scene.add_child(&door_scene);
+                root_scene.add_child(&lunar_scene);
+                root_scene.add_child(&heli_scene);
+                heli_scene.add_child(&main_rotor_scene);
+                heli_scene.add_child(&tail_rotor_scene);
+                heli_scene.add_child(&door_scene);
 
-            let lightsource = glm::vec3::<f32>(-8000., 5000., -6000.);
+                let mut heli_struct = HelicopterStruct {
+                    body: heli_scene,
+                    main_rotor: main_rotor_scene,
+                    tail_rotor: tail_rotor_scene,
+                    door: door_scene,
+                };
+
+                helicopters.push(heli_struct);
+            }
+            let lightsource = glm::vec3::<f32>(-800., 500., -600.);
             let view_projection_matrix =
                 camer_intrinsic_matrix * camera_rotation_matrix * camera_translation_matrix;
             unsafe {
@@ -366,14 +382,28 @@ fn main() {
                 let camera_position = glm::vec4_to_vec3(
                     &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.)),
                 );
-                heli_scene.set_position(glm::vec3(0., 10., 0.));
-
-                main_rotor_scene.set_rotation(glm::vec3(0., elapsed * 5., 0.));
-                tail_rotor_scene.set_rotation(glm::vec3(elapsed * 5., 0., 0.));
+                for i in 0..5 {
+                    let pos_var = elapsed + (2. * PI / 5.) * (i as f32);
+                    helicopters[i].body.set_position(glm::vec3(
+                        30. * pos_var.cos(),
+                        10. + 4. * (1.61803 * pos_var).sin(),
+                        -30. * pos_var.sin(),
+                    ));
+                    helicopters[i].body.set_rotation(glm::vec3(0., pos_var, 0.));
+                    helicopters[i].main_rotor.set_rotation(glm::vec3(
+                        0.,
+                        elapsed * (7. + (i as f32) * 0.5),
+                        0.,
+                    ));
+                    helicopters[i].tail_rotor.set_rotation(glm::vec3(
+                        elapsed * (5. - (i as f32) * 0.2),
+                        0.,
+                        0.,
+                    ));
+                }
                 update_node_transformations(
-                    &mut heli_scene,
-                    &(glm::translation(&glm::vec3(10. * elapsed.cos(), 0., -10. * elapsed.sin()))
-                        * glm::rotation(elapsed, &glm::vec3(0., 1., 0.))),
+                    &mut root_scene,
+                    &(glm::translation(&glm::vec3(0., 0., 0.))),
                 );
 
                 draw_scene(
