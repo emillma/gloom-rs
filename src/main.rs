@@ -25,7 +25,7 @@ use glutin::event_loop::ControlFlow;
 use std::ffi::CString;
 
 use mesh::{Helicopter, Terrain};
-use scene_graph::SceneNode;
+use scene_graph::{draw_scene, update_node_transformations, SceneNode};
 
 const SCREEN_W: u32 = 800;
 const SCREEN_H: u32 = 800;
@@ -193,8 +193,7 @@ fn main() {
         //set up verticies
         let n: u32 = 3;
 
-        let lunar_program_id: gl::types::GLuint;
-        let heli_program_id: gl::types::GLuint;
+        let program_id: gl::types::GLuint;
         let lunar_vao: gl::types::GLuint = 1;
         let heli_vao: gl::types::GLuint = 2;
         let main_rotor_vao: gl::types::GLuint = 3;
@@ -246,17 +245,8 @@ fn main() {
             let shader_builder = shader_builder.attach_file("shaders\\simple.vert");
             let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
             let shader_builder = shader_builder.link();
-            lunar_program_id = shader_builder.program_id;
-            gl::UseProgram(lunar_program_id);
-
-            // gl::BindVertexArray(vao);
-            // //I personally think this was way to difficult to figure out...
-            // let shader_builder = shader::ShaderBuilder::new();
-            // let shader_builder = shader_builder.attach_file("shaders\\simple.vert");
-            // let shader_builder = shader_builder.attach_file("shaders\\simple.frag");
-            // let shader_builder = shader_builder.link();
-            // heli_program_id = shader_builder.program_id;
-            // gl::UseProgram(heli_program_id);
+            program_id = shader_builder.program_id;
+            gl::UseProgram(program_id);
         }
 
         // Used to demonstrate keyboard handling -- feel free to remove
@@ -337,13 +327,27 @@ fn main() {
                 // println!["{:?}", glm::rotation(0., &glm::vec3(1.0, 0.0, 0.0))]
             }
             let mut root_scene = SceneNode::new();
-            let mut lunar_scene = SceneNode::from_vao(lunar_vao, lunar_surface.index_count);
-            let mut heli_scene = SceneNode::from_vao(heli_vao, helicopter.body.index_count);
-            let mut main_rotor_scene =
-                SceneNode::from_vao(main_rotor_vao, helicopter.main_rotor.index_count);
-            let mut tail_rotor_scene =
-                SceneNode::from_vao(tail_rotor_vao, helicopter.tail_rotor.index_count);
-            let door_scene = SceneNode::from_vao(door_vao, helicopter.door.index_count);
+
+            let mut lunar_scene =
+                SceneNode::from_vao(lunar_vao, lunar_surface.index_count, glm::vec3(0., 0., 0.));
+
+            let mut helicopters: Vec<scene_graph::Node> = Vec::new();
+            let mut heli_scene =
+                SceneNode::from_vao(heli_vao, helicopter.body.index_count, glm::vec3(0., 0., 0.));
+
+            let mut main_rotor_scene = SceneNode::from_vao(
+                main_rotor_vao,
+                helicopter.main_rotor.index_count,
+                glm::vec3(0., 0., 0.),
+            );
+            let mut tail_rotor_scene = SceneNode::from_vao(
+                tail_rotor_vao,
+                helicopter.tail_rotor.index_count,
+                glm::vec3(0.35, 2.3, 10.4),
+            );
+
+            let door_scene =
+                SceneNode::from_vao(door_vao, helicopter.door.index_count, glm::vec3(0., 0., 0.));
 
             root_scene.add_child(&lunar_scene);
             root_scene.add_child(&heli_scene);
@@ -351,7 +355,7 @@ fn main() {
             heli_scene.add_child(&tail_rotor_scene);
             heli_scene.add_child(&door_scene);
 
-            let lightsource = glm::vec3::<f32>(3000. * (0. * elapsed).cos(), 1000., 0.);
+            let lightsource = glm::vec3::<f32>(-8000., 5000., -6000.);
             let view_projection_matrix =
                 camer_intrinsic_matrix * camera_rotation_matrix * camera_translation_matrix;
             unsafe {
@@ -359,80 +363,28 @@ fn main() {
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
 
-                let cname = CString::new("ViewProjectionMatrix")
-                    .expect("expected uniform name to have no nul bytes");
-                let unilocation = gl::GetUniformLocation(
-                    lunar_program_id,
-                    cname.as_bytes_with_nul().as_ptr() as *const i8,
+                let camera_position = glm::vec4_to_vec3(
+                    &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.)),
                 );
-                gl::UniformMatrix4fv(
-                    unilocation,
-                    1,
-                    gl::FALSE,
-                    view_projection_matrix.as_slice().as_ptr() as *const f32,
+                heli_scene.set_position(glm::vec3(0., 10., 0.));
+
+                main_rotor_scene.set_rotation(glm::vec3(0., elapsed * 5., 0.));
+                tail_rotor_scene.set_rotation(glm::vec3(elapsed * 5., 0., 0.));
+                update_node_transformations(
+                    &mut heli_scene,
+                    &(glm::translation(&glm::vec3(10. * elapsed.cos(), 0., -10. * elapsed.sin()))
+                        * glm::rotation(elapsed, &glm::vec3(0., 1., 0.))),
                 );
 
-                let cname = CString::new("CameraPosition")
-                    .expect("expected uniform name to have no nul bytes");
-                let unilocation = gl::GetUniformLocation(
-                    lunar_program_id,
-                    cname.as_bytes_with_nul().as_ptr() as *const i8,
+                draw_scene(
+                    &root_scene,
+                    &view_projection_matrix,
+                    &camera_position,
+                    &lightsource,
+                    &program_id,
                 );
-                gl::Uniform3fv(
-                    unilocation,
-                    1,
-                    glm::vec4_to_vec3(
-                        &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.)),
-                    )
-                    .as_ptr() as *const f32,
-                );
-                println![
-                    "{:?}",
-                    glm::vec4_to_vec3(
-                        &(glm::inverse(&camera_translation_matrix) * glm::vec4(0., 0., 0., 1.))
-                    )
-                ];
-                for vao in vec![
-                    lunar_vao,
-                    heli_vao,
-                    main_rotor_vao,
-                    tail_rotor_vao,
-                    door_vao,
-                ] {
-                    gl::BindVertexArray(vao);
-                    gl::DrawElements(
-                        gl::TRIANGLES,
-                        lunar_surface.index_count,
-                        gl::UNSIGNED_INT,
-                        ptr::null(),
-                    );
-                }
-
-                let cname = CString::new("LightSource")
-                    .expect("expected uniform name to have no nul bytes");
-                let unilocation = gl::GetUniformLocation(
-                    lunar_program_id,
-                    cname.as_bytes_with_nul().as_ptr() as *const i8,
-                );
-                gl::Uniform3fv(unilocation, 1, lightsource.as_ptr() as *const f32);
-                for vao in vec![
-                    lunar_vao,
-                    heli_vao,
-                    main_rotor_vao,
-                    tail_rotor_vao,
-                    door_vao,
-                ] {
-                    gl::BindVertexArray(vao);
-                    gl::DrawElements(
-                        gl::TRIANGLES,
-                        lunar_surface.index_count,
-                        gl::UNSIGNED_INT,
-                        ptr::null(),
-                    );
-                }
-                // Issue the necessary commands to draw your scene here
             }
-
+            // Issue the necessary commands to draw your scene here
             context.swap_buffers().unwrap();
         }
     });

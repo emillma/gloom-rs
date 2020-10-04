@@ -13,7 +13,7 @@ float diffuse_gain;
 
 float specular_gain;
 float ks = 0.3;
-float alpha = 12.;
+float alpha = 20.;
 
 float ambient = 0.1;
 out vec4 outColor;

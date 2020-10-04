@@ -7,6 +7,7 @@ layout(location = 2) in vec3 vertex_normal;
 
 // uniform mat4 CameraTranslation;
 uniform mat4 ViewProjectionMatrix;
+uniform mat4 SceneTransfrom;
 uniform vec3 CameraPosition;
 uniform vec3 LightSource;
 
@@ -27,11 +28,11 @@ mat4 matrix = mat4(
 
 void main()
 {
-    gl_Position = ViewProjectionMatrix *  vec4(VertexPosition, 1.);
+    gl_Position = ViewProjectionMatrix *  SceneTransfrom * vec4(VertexPosition, 1.);
 
     theColor = vertex_color;
     // theNormal = vec3(ViewProjection *  vec4(vertex_normal, 0.));
-    N = normalize(vertex_normal);
+    N = normalize(vec3(SceneTransfrom * vec4(vertex_normal, 0.)));
     L =  normalize(LightSource - VertexPosition);
     V = normalize(CameraPosition - VertexPosition);
     R = 2 * dot(L, N) * N - L;
